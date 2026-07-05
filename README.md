@@ -1,71 +1,68 @@
 # cross-agent-skills
 
-Skills for driving Claude Code from Codex and Codex from Claude Code as local background workers — no cloud.
+Skills for driving Claude Code from Codex and Codex from Claude Code as local background workers - no cloud.
 
-- **`claude-skill/`** — installs into Claude Code as `codex-cli-bg-sessions`. Drive the `codex` CLI as a background worker: spawn, inspect, monitor real token usage, resume, and kill `codex exec` sessions.
-- **`codex-skill/`** — installs into Codex as `claude-code-bg-sessions`. Drive the `claude` CLI as a background worker: spawn, inspect, monitor real cost/token usage, resume, and kill `claude --bg` sessions.
+## Install
 
-Both exist because each agent's own MCP tool for driving the other is either broken (`claude-code` MCP's `Agent` tool has an empty agent registry — anthropics/claude-code#41973) or fully synchronous with no background/cost/kill primitives (Codex's `codex`/`codex-reply` MCP tools).
-
-## Delegation model
-
-These skills are best used for supervised delegation: ask the other agent to
-produce a candidate implementation, independent design pass, or read-only code
-review, then have the caller inspect the diff, run checks, and decide what to
-keep. For routine small edits, the process overhead usually outweighs the
-benefit.
-
-By default, prompts should tell background workers to edit the requested
-checkout in place and not to create worktrees, branches, commits, pushes, or
-pull requests unless the user explicitly requested those steps. If a worker does
-use a retained worktree, run verification in that worktree rather than assuming
-the original checkout changed.
-
-See `TODO.md` for planned wrapper scripts that will make this workflow less
-dependent on noisy terminal logs and manual transcript parsing.
-
-## These are living skills, not a fixed reference
-
-Everything in both `SKILL.md`s was derived by live experimentation against specific CLI versions (see each skill's `references/methodology.md`), not from stable documentation. Version numbers drift, error strings change, timings shift, upstream bugs get fixed. Each `SKILL.md` says so up front and asks whoever's using it to note a version mismatch without treating it as a crisis — and, if something in the skill actually turns out wrong (like the untrusted-project approval assumption that got corrected after being tested for real), to fix the file in place rather than work around it silently. That only works if the running skill and the repo are the same files — see below.
-
-## Setup (recommended: clone + symlink — lets both agents maintain these skills in place)
-
-Both agents' plugin/skill installers copy files with no git metadata — the installed copy can't be recognized as this repo, edited in place usefully, or pushed back, and picking up updates means a manual reinstall dance (Claude: `marketplace update` → `plugin update` → restart; Codex: no update command at all, delete and reinstall). Cloning and symlinking the live skill directories straight into the working tree avoids all of that: edits made through the normal skill path *are* edits to this repo, ready to commit and push directly, by either agent, as they learn things.
-
-```
+```bash
 git clone git@github.com:fbenkstein/cross-agent-skills.git ~/Projects/cross-agent-skills
-ln -s ~/Projects/cross-agent-skills/claude-skill ~/.claude/skills/codex-cli-bg-sessions
-ln -s ~/Projects/cross-agent-skills/codex-skill ~/.codex/skills/claude-code-bg-sessions
+
+mkdir -p ~/.claude/skills ~/.codex/skills
+ln -sfn ~/Projects/cross-agent-skills/claude-skill ~/.claude/skills/codex-cli-bg-sessions
+ln -sfn ~/Projects/cross-agent-skills/codex-skill ~/.codex/skills/claude-code-bg-sessions
 ```
 
-Restart the respective CLI (or Claude: `/reload-plugins`) to pick up the skill.
+Restart Codex and Claude Code. In Claude Code, `/reload-plugins` may be enough.
 
-**Getting updates from elsewhere:** since the skill directories are symlinks into a normal clone, there's no reinstall step — just update the checkout and the running skill updates with it:
+## What You Get
 
+- `claude-skill/` installs into Claude Code as `codex-cli-bg-sessions`.
+  It drives `codex exec` as a local background worker: spawn, inspect, monitor
+  token usage, resume, and kill.
+- `codex-skill/` installs into Codex as `claude-code-bg-sessions`.
+  It drives `claude --bg` as a local background worker: spawn, inspect, monitor
+  cost/token usage, resume, and stop.
+
+Both skills exist because the built-in cross-agent MCP paths are not enough for
+background work: Claude Code's MCP `Agent` tool currently has an empty agent
+registry, and Codex's MCP tools are synchronous with no background, status,
+token, or kill primitives.
+
+## How To Use
+
+Use these for supervised delegation: candidate implementations, independent
+design passes, or read-only code review. The caller still reviews the diff,
+runs checks, and decides what to keep.
+
+Default prompt guardrails:
+
+```text
+Edit files only in the requested checkout. Do not create or enter a worktree.
+Do not create a branch, commit, push, or open a pull request unless explicitly requested.
+When finished, summarize the files changed and verification performed.
 ```
-cd ~/Projects/cross-agent-skills && git pull
+
+For small edits, just do the work directly. The background-agent workflow pays
+off when independent reasoning or parallel implementation is worth the overhead.
+
+## Updating
+
+Because the installed skills are symlinks into this clone, updates are just:
+
+```bash
+cd ~/Projects/cross-agent-skills
+git pull
 ```
 
-**Contributing a correction:** edit the file through the live path (or the clone directly, it's the same file), then commit and push from `~/Projects/cross-agent-skills` as usual. If a finding turns out wrong (confirmed by testing, not just suspected), update the skill's `references/methodology.md` to say so rather than leaving a stale claim in place — that file exists specifically to track what was verified versus inferred.
+Edits made through the live skill path are edits to this repo, so corrections
+can be committed and pushed normally.
 
-## Read-only convenience consumption (no push-back)
+## Notes
 
-For a quick "just use it, once, no intent to maintain it" install, both agents' native mechanisms still work — the `.claude-plugin/` manifests are kept valid for this purpose. The tradeoff versus clone + symlink: what you get is a disconnected snapshot with no git metadata, so you can't push fixes back, and picking up upstream changes later means an explicit reinstall (Codex: delete and reinstall; Claude: `marketplace update` → `plugin update` → restart), not a `git pull`.
+These are living skills, not stable API references. The details in each
+`SKILL.md` were measured against specific CLI versions and may drift. If a
+finding turns out wrong, update the skill and its methodology notes instead of
+working around stale guidance.
 
-**Into Claude Code:**
-
-```
-claude plugin marketplace add fbenkstein/cross-agent-skills
-claude plugin install codex-cli-bg-sessions@cross-agent-skills
-```
-
-**Into Codex:** ask Codex (its built-in `skill-installer` skill handles this):
-
-> Install the skill from github.com/fbenkstein/cross-agent-skills, path `codex-skill`
-
-or run its installer script directly:
-
-```
-python3 ~/.codex/skills/.system/skill-installer/scripts/install-skill-from-github.py \
-  --repo fbenkstein/cross-agent-skills --path codex-skill
-```
+See `TODO.md` for planned helper scripts that will reduce manual transcript
+parsing and noisy terminal-log handling.
