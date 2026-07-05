@@ -41,6 +41,19 @@ Code work to make the cross-agent background workflows easier to reuse.
 - Document wrapper output formats so both agents can consume them without
   brittle terminal-log parsing.
 
+## Survey other implementations
+
+- Review community MCP bridges for approaches worth borrowing or pitfalls to
+  avoid: `tuannvm/codex-mcp-server`, `kky42/codex-as-mcp`,
+  `mkXultra/ai-cli-mcp` (background execution for Claude/Codex/Gemini via
+  MCP), and the `claude-codex-bridge` / `codex-claude-bridge` pair (session
+  ID relay, `BRIDGE_DEPTH` recursion guard).
+- Note upstream bugs these projects work around, in case they get fixed and
+  change what's worth building here: Claude Code's MCP `Agent` tool has an
+  empty agent registry in `mcp serve` mode (anthropics/claude-code#41973),
+  and Codex's `mcp-server` doesn't reliably return `conversationId`/
+  `threadId`, breaking multi-turn `codex-reply()`.
+
 ## Verification
 
 - Add smoke tests or golden transcript fixtures for the transcript parsers.
