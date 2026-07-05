@@ -4,15 +4,27 @@ Skills for driving Claude Code from Codex and Codex from Claude Code as local ba
 
 ## Install
 
-```bash
-git clone git@github.com:fbenkstein/cross-agent-skills.git ~/Projects/cross-agent-skills
+### If you use Claude Code
 
-mkdir -p ~/.claude/skills ~/.codex/skills
-ln -sfn ~/Projects/cross-agent-skills/claude-skill ~/.claude/skills/codex-cli-bg-sessions
-ln -sfn ~/Projects/cross-agent-skills/codex-skill ~/.codex/skills/claude-code-bg-sessions
+Run these commands in your terminal:
+
+```bash
+claude plugin marketplace add fbenkstein/cross-agent-skills
+claude plugin install codex-cli-bg-sessions@cross-agent-skills
 ```
 
-Restart Codex and Claude Code. In Claude Code, `/reload-plugins` may be enough.
+### If you use Codex
+
+Type this into a Codex session:
+
+> Install the skill from github.com/fbenkstein/cross-agent-skills, path `codex-skill`
+
+Or run its installer script directly in your terminal:
+
+```bash
+python3 ~/.codex/skills/.system/skill-installer/scripts/install-skill-from-github.py \
+  --repo fbenkstein/cross-agent-skills --path codex-skill
+```
 
 ## What You Get
 
@@ -45,18 +57,6 @@ When finished, summarize the files changed and verification performed.
 For small edits, just do the work directly. The background-agent workflow pays
 off when independent reasoning or parallel implementation is worth the overhead.
 
-## Updating
-
-Because the installed skills are symlinks into this clone, updates are just:
-
-```bash
-cd ~/Projects/cross-agent-skills
-git pull
-```
-
-Edits made through the live skill path are edits to this repo, so corrections
-can be committed and pushed normally.
-
 ## Notes
 
 These are living skills, not stable API references. The details in each
@@ -66,3 +66,6 @@ working around stale guidance.
 
 See `TODO.md` for planned helper scripts that will reduce manual transcript
 parsing and noisy terminal-log handling.
+
+Want to edit these skills in place, get updates via `git pull`, or contribute
+a fix? See `HACKING.md`.
