@@ -42,6 +42,50 @@ If this fails with `EPERM ... mkdir '.../.claude/jobs/...'`, you're in a filesys
 
 Useful flags: `--model <alias>` (e.g. `haiku` for cheap smoke tests), `--agent <name>` / `--agents <json>` to pick a persona.
 
+## Delegating implementation or review work
+
+Use `claude --bg` as a supervised worker, not as a fire-and-forget replacement
+for your own final judgment. This flow is worth the overhead for larger
+implementation spikes, independent design attempts, or second-pass code review;
+for routine small fixes, the process is usually more ceremony than value.
+
+Before spawning, decide the worktree policy and say it explicitly in the
+prompt:
+
+- **Candidate branch/worktree:** ask Claude to isolate the work in a dedicated
+  worktree/branch and produce a candidate patch there. This is the preferred
+  default for substantial implementation work because it avoids mixing
+  Claude's edits with the caller's dirty working tree.
+- **Current checkout only:** ask Claude not to enter a worktree if the desired
+  output is a direct edit to the current checkout.
+- **Review only:** tell Claude the run is read-only and must not edit files,
+  commit, push, or open pull requests.
+
+Unless the user explicitly requested publishing, include a hard scope limit in
+the prompt:
+
+```
+Do not commit, push, or open a pull request unless explicitly requested.
+When finished, summarize the files changed and verification performed.
+```
+
+If you do allow a commit, still treat it as a candidate artifact. Inspect the
+diff yourself, run the relevant checks in the directory where Claude actually
+worked, and report the result as "Claude produced this candidate" rather than
+as complete until you have verified it.
+
+Practical handoff checklist after Claude reports completion:
+
+1. `claude agents --json` to confirm whether the session is still busy and to
+   see its actual `cwd` (it may be a retained `.claude/worktrees/...` checkout).
+2. Read the transcript JSONL for the final summary and failed tool calls; prefer
+   this over `claude logs` for anything machine-readable.
+3. Run `git status`, `git show --stat`, and the task's relevant checks in
+   Claude's actual worktree.
+4. Review the resulting API/diff yourself, especially for overreach beyond the
+   prompt.
+5. Stop any still-busy background worker before ending your turn.
+
 ## Inspecting
 
 `claude agents --json` is the structured source of truth for whether a session is still running (`"status":"busy"` vs `"idle"`) and how long it's been going (`startedAt`). Prefer polling this over screen-scraping `claude logs`.
@@ -56,6 +100,13 @@ timeout 1s claude daemon logs
 ```
 
 `claude daemon logs` has no non-follow mode, so wrap it with `timeout`; exit code 124 means the timeout stopped the tail successfully. The daemon log is not a session transcript, but it is useful for lifecycle debugging: supervisor start/idle-exit, control socket binding, spare worker spawn, and which short ids were claimed or settled. In this Codex environment, `claude logs <id>` may need to run outside the filesystem sandbox to reach the daemon socket; `claude daemon status`, `timeout 1s claude daemon logs`, and direct transcript JSONL reads worked sandboxed in the observed setup.
+
+If sandboxed `claude agents --json` reports no background session while
+`claude --resume <uuid> -p ...` still says the session is bg-owned, trust the
+daemon-side view: rerun `claude agents --json` and `claude stop <id>` outside
+the sandbox. This mismatch has been observed when a background job moved into a
+retained Claude worktree; the sandboxed roster and daemon state disagreed until
+the daemon was queried directly.
 
 ## Resuming / steering — what actually works
 

@@ -7,6 +7,22 @@ Skills for driving Claude Code from Codex and Codex from Claude Code as local ba
 
 Both exist because each agent's own MCP tool for driving the other is either broken (`claude-code` MCP's `Agent` tool has an empty agent registry — anthropics/claude-code#41973) or fully synchronous with no background/cost/kill primitives (Codex's `codex`/`codex-reply` MCP tools).
 
+## Delegation model
+
+These skills are best used for supervised delegation: ask the other agent to
+produce a candidate implementation, independent design pass, or read-only code
+review, then have the caller inspect the diff, run checks, and decide what to
+keep. For routine small edits, the process overhead usually outweighs the
+benefit.
+
+By default, prompts should tell background workers not to commit, push, or open
+pull requests unless the user explicitly requested that publishing step. If a
+worker uses a retained worktree, run verification in that worktree rather than
+assuming the original checkout changed.
+
+See `TODO.md` for planned wrapper scripts that will make this workflow less
+dependent on noisy terminal logs and manual transcript parsing.
+
 ## These are living skills, not a fixed reference
 
 Everything in both `SKILL.md`s was derived by live experimentation against specific CLI versions (see each skill's `references/methodology.md`), not from stable documentation. Version numbers drift, error strings change, timings shift, upstream bugs get fixed. Each `SKILL.md` says so up front and asks whoever's using it to note a version mismatch without treating it as a crisis — and, if something in the skill actually turns out wrong (like the untrusted-project approval assumption that got corrected after being tested for real), to fix the file in place rather than work around it silently. That only works if the running skill and the repo are the same files — see below.
