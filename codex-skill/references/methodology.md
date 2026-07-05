@@ -1,0 +1,27 @@
+# Methodology
+
+Everything in this skill came from live experimentation against a real `claude` v2.1.201 install and a real `claude mcp serve` process, not from official docs — the MCP `Agent` registry bug isn't documented anywhere, and the `--bg` session lifecycle isn't fully documented either. Recorded here so a future run can tell what to re-check versus what to trust.
+
+## How each finding was derived
+
+- **MCP `Agent` tool registry is empty in `mcp serve` mode.** Spoke raw MCP JSON-RPC over stdio to a *fresh, standalone* `claude mcp serve` process (`initialize` → `tools/list` → `tools/call` on `Agent` with `subagent_type: "general-purpose"`), not just a nested call from within another Claude session — ruling out recursion as the cause. Got the schema back (confirmed no `enum` on `subagent_type`) and the empty `"Available agents:"` error. Cross-checked against upstream GitHub issues (`anthropics/claude-code` #41973, #64622, #58729, #15135) to confirm this reproduces across OSes and many CLI versions, and that a related-but-distinct bug (#58729) was already fixed in v2.1.142 without resolving this one.
+- **`--bg` spawn + `agents --json` fields.** Started real `--bg` sessions with cheap/bounded prompts (Haiku model, short `sleep N` loops with an explicit max-iteration instruction as a safety net) and read the resulting `agents --json` structure directly.
+- **`claude logs <id>` is a raw ANSI terminal capture.** Captured actual output of `claude logs <id>` both mid-run and post-run; tried stripping ANSI codes with a `perl` regex and confirmed it's still a jumbled mix of redraws/spinner frames, not a clean transcript.
+- **Daemon status/logs for lifecycle diagnosis.** Ran `claude daemon status` after a completed bg run and observed it report `not running`, `control.sock: unreachable`, roster count, daemon log path, and a recommendation to restart/reap. Ran `timeout 1s claude daemon logs` and confirmed it tails `~/.claude/daemon.log`, prints supervisor/socket/worker lifecycle lines, and exits via `timeout` with code 124. Also confirmed `claude logs <id>` failed inside Codex's sandbox with `ECONNREFUSED .../control.sock` while the same command succeeded unsandboxed; daemon status/logs and transcript reads worked sandboxed in that setup.
+- **`attach` needs a real TTY.** Ran `claude attach <id>` from this non-interactive shell (no pty) and observed it flash alternate-screen escape codes and exit immediately, with no actual interaction taking place.
+- **`--resume` refuses a running session; `--fork-session` branches instead of steering; stopping-then-resuming continues the real session.** Tested all three paths directly: (1) `--resume <uuid> -p ...` against a still-`busy` session → explicit refusal error; (2) same call with `--fork-session` → succeeded but returned a *different* `session_id`; (3) `claude stop <id>` followed by plain `--resume <uuid> -p ...` (no fork) → same `session_id` as the original, and the `usage.cache_read_input_tokens`/`total_cost_usd` in the result showed cache reuse (~20x cheaper than the forked call), which only happens on genuine continuation.
+- **`stop` kill latency (~1-1.5s).** Captured the target PID from `agents --json` before stopping, timed the `stop` command's own wall-clock return time, then polled `ps -p <pid>` at ~0.3s intervals until the process disappeared.
+- **Cost/token telemetry lives in the session's JSONL transcript, and needs `message.id` dedup.** Located the transcript path convention (`~/.claude/projects/<sanitized-cwd>/<uuid>.jsonl`), tailed it with a 0.5s poll loop *during* an active loop and watched entries land in sync with the loop's real cadence (proving it's live, not written at exit). Initial naive per-line sum of `message.usage` produced obviously-inflated numbers; inspecting the raw lines showed each turn logged once per content block (`thinking`/`text`/`tool_use`) with the *same* usage total repeated on each — confirmed by grouping on `message.id`/`requestId` and seeing the duplication exactly follow content-block count. Verified the dedup fix against a controlled loop with a known small number of turns.
+
+## What's most likely to have drifted if this misbehaves
+
+Roughly in order of fragility:
+
+1. Whether the MCP `Agent` registry bug is still present at all — it's an open upstream issue that could get fixed in a later release the same way its neighbor (#58729) did.
+2. Exact error message text (`"Agent type '...' not found. Available agents:"`) and other literal strings quoted in SKILL.md.
+3. The `stop` kill-latency figure (~1-1.5s) — timing, not a documented guarantee.
+4. JSONL transcript internals: field names inside `message.usage`, the one-line-per-content-block behavior, the `.jsonl` path convention.
+5. The `~/.claude/jobs` sandbox `EPERM` specifics.
+6. Which Claude CLI commands need unsandboxed execution in Codex; daemon socket access and sandbox policy are host-specific.
+
+Least likely to have drifted: the general CLI shape (`--bg`, `agents`, `logs`, `attach`, `stop`, `--resume`, `--fork-session` existing as concepts) and the fact that a per-session transcript file exists at all under `~/.claude/projects`.

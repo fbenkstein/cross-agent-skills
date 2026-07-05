@@ -1,0 +1,13 @@
+{
+  "$schema": "https://anthropic.com/claude-code/plugin.schema.json",
+  "name": "codex-cli-bg-sessions",
+  "version": "0.1.0",
+  "description": "Drive the codex CLI as a local background worker from Claude Code: spawn, inspect, monitor cost, resume, and kill codex exec sessions without Codex Cloud.",
+  "author": {
+    "name": "Frank Benkstein",
+    "email": "frank@benkstein.net"
+  },
+  "skills": [
+    "./"
+  ]
+}

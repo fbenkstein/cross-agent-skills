@@ -1,0 +1,21 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "cross-agent-skills",
+  "description": "Skills for driving Claude Code from Codex and Codex from Claude Code as local background workers.",
+  "owner": {
+    "name": "Frank Benkstein",
+    "email": "frank@benkstein.net"
+  },
+  "plugins": [
+    {
+      "name": "codex-cli-bg-sessions",
+      "description": "Drive the codex CLI as a local background worker from Claude Code: spawn, inspect, monitor cost, resume, and kill codex exec sessions without Codex Cloud.",
+      "author": {
+        "name": "Frank Benkstein",
+        "email": "frank@benkstein.net"
+      },
+      "source": "./claude-skill",
+      "category": "development"
+    }
+  ]
+}

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Claude Code Background Sessions"
+  short_description: "Monitor, resume, and safely stop claude --bg sessions"
+  default_prompt: "Use $claude-code-bg-sessions to spawn a claude --bg session and safely monitor or stop it."
