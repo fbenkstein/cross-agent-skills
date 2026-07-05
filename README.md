@@ -15,10 +15,11 @@ review, then have the caller inspect the diff, run checks, and decide what to
 keep. For routine small edits, the process overhead usually outweighs the
 benefit.
 
-By default, prompts should tell background workers not to commit, push, or open
-pull requests unless the user explicitly requested that publishing step. If a
-worker uses a retained worktree, run verification in that worktree rather than
-assuming the original checkout changed.
+By default, prompts should tell background workers to edit the requested
+checkout in place and not to create worktrees, branches, commits, pushes, or
+pull requests unless the user explicitly requested those steps. If a worker does
+use a retained worktree, run verification in that worktree rather than assuming
+the original checkout changed.
 
 See `TODO.md` for planned wrapper scripts that will make this workflow less
 dependent on noisy terminal logs and manual transcript parsing.

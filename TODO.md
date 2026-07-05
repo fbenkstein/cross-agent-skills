@@ -31,7 +31,7 @@ Code work to make the cross-agent background workflows easier to reuse.
 - Add a `--review-only` mode that tells Claude not to edit files or run
   mutating commands.
 - Add a `--worktree`/`--no-worktree` option so the caller decides whether
-  Claude should isolate implementation work.
+  Claude should isolate implementation work. Default to `--no-worktree`.
 
 ## Cross-agent symmetry
 

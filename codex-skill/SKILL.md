@@ -50,22 +50,27 @@ implementation spikes, independent design attempts, or second-pass code review;
 for routine small fixes, the process is usually more ceremony than value.
 
 Before spawning, decide the worktree policy and say it explicitly in the
-prompt:
+prompt. A worktree is **not required** for a background session. The default
+should be to edit the requested checkout in place unless the user explicitly
+asked for an isolated candidate branch/worktree.
 
-- **Candidate branch/worktree:** ask Claude to isolate the work in a dedicated
-  worktree/branch and produce a candidate patch there. This is the preferred
-  default for substantial implementation work because it avoids mixing
-  Claude's edits with the caller's dirty working tree.
-- **Current checkout only:** ask Claude not to enter a worktree if the desired
-  output is a direct edit to the current checkout.
+- **Current checkout only:** tell Claude not to enter a worktree, create a
+  branch, commit, push, or open a pull request. Use this for ordinary
+  implementation delegation where the user asked for files to be edited in
+  place.
+- **Candidate branch/worktree:** only ask Claude to isolate the work in a
+  dedicated worktree/branch when the user explicitly requested that, or when you
+  have first explained that isolation is needed to avoid conflicting with a
+  dirty checkout and the user agreed.
 - **Review only:** tell Claude the run is read-only and must not edit files,
   commit, push, or open pull requests.
 
-Unless the user explicitly requested publishing, include a hard scope limit in
-the prompt:
+Unless the user explicitly requested otherwise, include hard scope limits in the
+prompt:
 
 ```
-Do not commit, push, or open a pull request unless explicitly requested.
+Edit files only in the requested checkout. Do not create or enter a worktree.
+Do not create a branch, commit, push, or open a pull request unless explicitly requested.
 When finished, summarize the files changed and verification performed.
 ```
 
